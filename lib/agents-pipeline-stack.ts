@@ -1,16 +1,31 @@
 import * as cdk from 'aws-cdk-lib/core';
-import { Construct } from 'constructs';
-// import * as sqs from 'aws-cdk-lib/aws-sqs';
+import {Construct} from 'constructs';
+import {AgentRuntimeArtifact, Runtime} from 'aws-cdk-lib/aws-bedrockagentcore'
+import {DockerImageAsset, Platform} from "aws-cdk-lib/aws-ecr-assets";
+import {IgnoreMode} from "aws-cdk-lib/core";
+import {ManagedPolicy} from "aws-cdk-lib/aws-iam";
 
 export class AgentsPipelineStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
-    super(scope, id, props);
+    constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+        super(scope, id, props);
 
-    // The code that defines your stack goes here
+        const container = new DockerImageAsset(this, 'Container', {
+            assetName: "agentName",
+            directory: `../myproject/app/MyAgent2`,
+            ignoreMode: IgnoreMode.GLOB,
+            platform: Platform.LINUX_ARM64,
+        })
 
-    // example resource
-    // const queue = new sqs.Queue(this, 'AgentsPipelineQueue', {
-    //   visibilityTimeout: cdk.Duration.seconds(300)
-    // });
-  }
+        const agentRuntimeArtifact = AgentRuntimeArtifact.fromImageUri(container.imageUri)
+
+        const myAgent2 = new Runtime(this, "MyAgent2", {
+            runtimeName: "MyAgent2",
+            agentRuntimeArtifact: agentRuntimeArtifact,
+
+        });
+
+        container.repository.grantPull(myAgent2.role)
+        myAgent2.role.addManagedPolicy(ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockLimitedAccess'))
+
+    }
 }
